@@ -1,0 +1,44 @@
+[
+    {
+        "transactionName": "GeoCacheExists",
+        "transactionLabel": "A test GeoCacheExists transaction",
+        "arguments": [
+            "001"
+        ],
+        "transientData": {}
+    },
+    {
+        "transactionName": "CreateGeoCache",
+        "transactionLabel": "A test CreateGeoCache transaction",
+        "arguments": [
+            "001",
+            "some value"
+        ],
+        "transientData": {}
+    },
+    {
+        "transactionName": "ReadGeoCache",
+        "transactionLabel": "A test ReadGeoCache transaction",
+        "arguments": [
+            "001"
+        ],
+        "transientData": {}
+    },
+    {
+        "transactionName": "UpdateGeoCache",
+        "transactionLabel": "A test UpdateGeoCache transaction",
+        "arguments": [
+            "001",
+            "some other value"
+        ],
+        "transientData": {}
+    },
+    {
+        "transactionName": "DeleteGeoCache",
+        "transactionLabel": "A test DeleteGeoCache transaction",
+        "arguments": [
+            "001"
+        ],
+        "transientData": {}
+    }
+]
