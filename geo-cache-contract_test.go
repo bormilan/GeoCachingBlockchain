@@ -92,20 +92,28 @@ func TestGeoCacheExists(t *testing.T) {
 	assert.True(t, exists, "should return true when value for key in world state")
 }
 
+// u := new(User)
+// 	u.Id = "123"
+// 	u.Name = "TestUser"
+// 	assert.True(t, (c.CreateGeoCache(ctx, *u, "testId", "testName", "testDescription", [2]int{5, 10}, [2]int{5, 10}) != nil), "mitkellideirni")
+
 // func TestCreateGeoCache(t *testing.T) {
 // 	var err error
 
-// 	ctx, _ := configureStub()
+// 	ctx, stub := configureStub()
 // 	c := new(GeoCacheContract)
+// 	u := new(User)
+// 	u.Id = "123"
+// 	u.Name = "TestUser"
 
-// 	err = c.CreateGeoCache(ctx, "statebad", "some value", [2]int{5, 10}, [2]int{5, 10})
+// 	err = c.CreateGeoCache(ctx, *u, "statebad", "some value", "testDescription", [2]int{5, 10}, [2]int{5, 10})
 // 	assert.EqualError(t, err, fmt.Sprintf("Could not read from world state. %s", getStateError), "should error when exists errors")
 
-// 	err = c.CreateGeoCache(ctx, "existingkey", "some value", [2]int{5, 10}, [2]int{5, 10})
+// 	err = c.CreateGeoCache(ctx, *u, "existingkey", "some value", "testDescription", [2]int{5, 10}, [2]int{5, 10})
 // 	assert.EqualError(t, err, "The asset existingkey already exists", "should error when exists returns true")
 
-// 	// err = c.CreateGeoCache(ctx, "missingkey", "some value", testXrange, testYrange)
-// 	// stub.AssertCalled(t, "PutState", "missingkey", []byte("{\"value\":\"some value\"}"))
+// 	err = c.CreateGeoCache(ctx, *u, "missingkey", "some value", "testDescription", [2]int{5, 10}, [2]int{5, 10})
+// 	stub.AssertCalled(t, "PutState", "missingkey", []byte("{\"value\":\"some value\"}"))
 
 // 	//TODO: implement more asserts for coordinate validation
 // }

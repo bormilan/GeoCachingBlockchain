@@ -6,7 +6,6 @@ package main
 
 // GeoCache stores a value
 type GeoCache struct {
-	Id          string
 	Name        string
 	Description string
 	XcoordRange [2]int
@@ -25,6 +24,7 @@ type Trackable struct {
 type User struct {
 	Id   string
 	Name string
+	Salt string
 }
 
 type Report struct {

@@ -5,6 +5,8 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -28,6 +30,29 @@ func (c *GeoCacheContract) GeoCacheExists(ctx contractapi.TransactionContextInte
 	return data != nil, nil
 }
 
+func myHash(s string) string {
+	n := 1
+	for n < 100 {
+		h := sha1.New()
+		h.Write([]byte(s))
+		bs := h.Sum(nil)
+		s = string(bs)
+		n++
+	}
+
+	return hex.EncodeToString([]byte(s))
+}
+
+func generateSalt() string {
+	var letterRunes = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	salt := make([]rune, 8)
+	for i := range salt {
+		salt[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+
+	return string(salt)
+}
+
 // CreateGeoCache creates a new instance of GeoCache
 func (c *GeoCacheContract) CreateGeoCache(ctx contractapi.TransactionContextInterface, user User, geoCacheID string, name string, description string, newXcoordRange [2]int, newYcoordRange [2]int) error {
 	exists, err := c.GeoCacheExists(ctx, geoCacheID)
@@ -44,6 +69,8 @@ func (c *GeoCacheContract) CreateGeoCache(ctx contractapi.TransactionContextInte
 	geoCache.XcoordRange = newXcoordRange
 	geoCache.YcoordRange = newYcoordRange
 	geoCache.Owner = user
+	geoCache.Owner.Salt = generateSalt()
+	geoCache.Owner.Id = myHash(user.Id + geoCache.Owner.Salt)
 	geoCache.Reports = []Report{}
 	geoCache.Visitors = []User{}
 
@@ -86,25 +113,33 @@ func (c *GeoCacheContract) ReadGeoCache(ctx contractapi.TransactionContextInterf
 }
 
 // UpdateGeoCache retrieves an instance of GeoCache from the world state and updates its value
-func (c *GeoCacheContract) UpdateGeoCache(ctx contractapi.TransactionContextInterface, userId string, geoCacheID string, newName string, newDescription string) error {
-	exists, err := c.GeoCacheExists(ctx, geoCacheID)
+func (c *GeoCacheContract) UpdateGeoCache(ctx contractapi.TransactionContextInterface, user User, geoCacheId string, newName string, newDescription string) error {
+	exists, err := c.GeoCacheExists(ctx, geoCacheId)
 	if err != nil {
 		return fmt.Errorf("Could not read from world state. %s", err)
 	} else if !exists {
-		return fmt.Errorf("The asset %s does not exist", geoCacheID)
+		return fmt.Errorf("The asset %s does not exist", geoCacheId)
 	}
 
+	bytes, _ := ctx.GetStub().GetState(geoCacheId)
+
 	geoCache := new(GeoCache)
-	if geoCache.Owner.Id != userId {
+
+	err = json.Unmarshal(bytes, geoCache)
+	if err != nil {
+		return fmt.Errorf("Could not unmarshal world state data to type GeoCache")
+	}
+
+	if geoCache.Owner.Id != myHash(user.Id+geoCache.Owner.Salt) {
 		return fmt.Errorf("Only the owner can update a cache!")
 	}
 
 	geoCache.Name = newName
 	geoCache.Description = newDescription
 
-	bytes, _ := json.Marshal(geoCache)
+	newBytes, _ := json.Marshal(geoCache)
 
-	return ctx.GetStub().PutState(geoCacheID, bytes)
+	return ctx.GetStub().PutState(geoCacheId, newBytes)
 }
 
 // UpdateGeoCache retrieves an instance of GeoCache from the world state and updates its value
@@ -148,68 +183,126 @@ func (c *GeoCacheContract) SwitchTrackable(ctx contractapi.TransactionContextInt
 		return nil, fmt.Errorf("The asset %s does not exist", geoCacheId)
 	}
 
+	bytes, _ := ctx.GetStub().GetState(geoCacheId)
+
 	geoCache := new(GeoCache)
+
+	err = json.Unmarshal(bytes, geoCache)
+	if err != nil {
+		return nil, fmt.Errorf("Could not unmarshal world state data to type GeoCache")
+	}
+
 	cacheTrackable := geoCache.Trackable
 	geoCache.Trackable = trackable
 
-	bytes, _ := json.Marshal(geoCache)
+	newBytes, _ := json.Marshal(geoCache)
 
-	return &cacheTrackable, ctx.GetStub().PutState(geoCacheId, bytes)
+	return &cacheTrackable, ctx.GetStub().PutState(geoCacheId, newBytes)
 }
 
 // UpdateGeoCache retrieves two list of new koordinates of GeoCache from the world state and updates its value
-func (c *GeoCacheContract) UpdateCoordGeoCache(ctx contractapi.TransactionContextInterface, geoCacheID string, newValue string, newXcoordRange [2]int, newYcoordRange [2]int) error {
-	exists, err := c.GeoCacheExists(ctx, geoCacheID)
+func (c *GeoCacheContract) UpdateCoordGeoCache(ctx contractapi.TransactionContextInterface, user User, geoCacheId string, newXcoordRange [2]int, newYcoordRange [2]int) error {
+	exists, err := c.GeoCacheExists(ctx, geoCacheId)
 	if err != nil {
 		return fmt.Errorf("Could not read from world state. %s", err)
 	} else if !exists {
-		return fmt.Errorf("The asset %s does not exist", geoCacheID)
+		return fmt.Errorf("The asset %s does not exist", geoCacheId)
 	}
 
-	//create object
+	bytes, _ := ctx.GetStub().GetState(geoCacheId)
+
 	geoCache := new(GeoCache)
+
+	err = json.Unmarshal(bytes, geoCache)
+	if err != nil {
+		return fmt.Errorf("Could not unmarshal world state data to type GeoCache")
+	}
+
+	if geoCache.Owner.Id != myHash(user.Id+geoCache.Owner.Salt) {
+		return fmt.Errorf("Only the owner can update a cache!")
+	}
+
 	geoCache.XcoordRange = newXcoordRange
 	geoCache.YcoordRange = newYcoordRange
 
-	bytes, _ := json.Marshal(geoCache)
+	newBytes, _ := json.Marshal(geoCache)
 
-	return ctx.GetStub().PutState(geoCacheID, bytes)
+	return ctx.GetStub().PutState(geoCacheId, newBytes)
 }
 
 // DeleteGeoCache deletes an instance of GeoCache from the world state
-func (c *GeoCacheContract) DeleteGeoCache(ctx contractapi.TransactionContextInterface, user User, geoCacheID string) error {
-	exists, err := c.GeoCacheExists(ctx, geoCacheID)
+func (c *GeoCacheContract) DeleteGeoCache(ctx contractapi.TransactionContextInterface, user User, geoCacheId string) error {
+	exists, err := c.GeoCacheExists(ctx, geoCacheId)
 	if err != nil {
 		return fmt.Errorf("Could not read from world state. %s", err)
 	} else if !exists {
-		return fmt.Errorf("The asset %s does not exist", geoCacheID)
+		return fmt.Errorf("The asset %s does not exist", geoCacheId)
 	}
+
+	bytes, _ := ctx.GetStub().GetState(geoCacheId)
 
 	geoCache := new(GeoCache)
-	if geoCache.Owner.Id != user.Id {
-		return fmt.Errorf("Only the owner can delete a cache!")
+
+	err = json.Unmarshal(bytes, geoCache)
+	if err != nil {
+		return fmt.Errorf("Could not unmarshal world state data to type GeoCache")
 	}
 
-	return ctx.GetStub().DelState(geoCacheID)
+	if geoCache.Owner.Id != myHash(user.Id+geoCache.Owner.Salt) {
+		return fmt.Errorf("Only the owner can update a cache!")
+	}
+
+	return ctx.GetStub().DelState(geoCacheId)
 }
 
 //ReportGeoCache make a report for a cache
-func (c *GeoCacheContract) ReportGeoCache(ctx contractapi.TransactionContextInterface, user User, message string, geoCacheID string) error {
-	exists, err := c.GeoCacheExists(ctx, geoCacheID)
+func (c *GeoCacheContract) ReportGeoCache(ctx contractapi.TransactionContextInterface, user User, message string, geoCacheId string) error {
+	exists, err := c.GeoCacheExists(ctx, geoCacheId)
 	if err != nil {
 		return fmt.Errorf("Could not read from world state. %s", err)
 	} else if !exists {
-		return fmt.Errorf("The asset %s does not exist", geoCacheID)
+		return fmt.Errorf("The asset %s does not exist", geoCacheId)
+	}
+
+	bytes, _ := ctx.GetStub().GetState(geoCacheId)
+
+	geoCache := new(GeoCache)
+
+	err = json.Unmarshal(bytes, geoCache)
+	if err != nil {
+		return fmt.Errorf("Could not unmarshal world state data to type GeoCache")
 	}
 
 	report := new(Report)
 	report.Message = message
 	report.Notifier = user
 
-	geoCache := new(GeoCache)
 	geoCache.Reports = append(geoCache.Reports, *report)
 
-	bytes, _ := json.Marshal(geoCache)
+	newBytes, _ := json.Marshal(geoCache)
 
-	return ctx.GetStub().PutState(geoCacheID, bytes)
+	return ctx.GetStub().PutState(geoCacheId, newBytes)
+}
+
+func (c *GeoCacheContract) GetReports(ctx contractapi.TransactionContextInterface, user User, geoCacheId string) ([]Report, error) {
+	exists, err := c.GeoCacheExists(ctx, geoCacheId)
+	if err != nil {
+		return nil, fmt.Errorf("Could not read from world state. %s", err)
+	} else if !exists {
+		return nil, fmt.Errorf("The asset %s does not exist", geoCacheId)
+	}
+
+	bytes, _ := ctx.GetStub().GetState(geoCacheId)
+
+	geoCache := new(GeoCache)
+
+	err = json.Unmarshal(bytes, geoCache)
+	if err != nil {
+		return nil, fmt.Errorf("Could not unmarshal world state data to type GeoCache")
+	}
+
+	if geoCache.Owner.Id != myHash(user.Id+geoCache.Owner.Salt) {
+		return nil, fmt.Errorf("Only the owner can get the reports!")
+	}
+	return geoCache.Reports, nil
 }
