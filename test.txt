@@ -1,8 +1,63 @@
+CreateGeocache:
 {
-  "param0": {"Id": "123", "Name": "Laci", "Salt": ""},
+  "param0": {"Id": "123", "Name": "testName", "Salt": ""},
   "param1": "testId",
   "param2": "testName",
   "param3": "testDescription",
   "param4": [5, 10],
   "param5": [5, 10]
+}
+
+ReadGeoCache:
+{
+  "param0": "testId"
+}
+
+UpdateGeoCache:
+{
+  "param0": {"Id": "123", "Name": "testName", "Salt": ""},
+  "param1": "testId",
+  "param2": "newName",
+  "param3": "newDescription"
+}
+
+AddVisitorToGeoCache:
+{
+  "param0": {"Id": "123", "Name": "testName", "Salt": ""},
+  "param1": "testId",
+  "param2": 6,
+  "param3": 6
+}
+
+SwitchTrackable:
+{
+  "param0": {"Id": "456", "Value": "testValue"},
+  "param1": "testId"
+}
+
+UpdateCoordGeoCache:
+{
+  "param0": {"Id": "123", "Name": "testName", "Salt": ""},
+  "param1": "testId",
+  "param2": [4, 10],
+  "param3": [4, 10]
+}
+
+ReportGeoCache:
+{
+  "param0": {"Id": "123", "Name": "testName", "Salt": ""},
+  "param1": "testMessage",
+  "param2": "testId"
+}
+
+GetReports:
+{
+  "param0": {"Id": "123", "Name": "testName", "Salt": ""},
+  "param1": "testId"
+}
+
+DeleteGeoCache:
+{
+  "param0": {"Id": "123", "Name": "testName"},
+  "param1": "testId"
 }

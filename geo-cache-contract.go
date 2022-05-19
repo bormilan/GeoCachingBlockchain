@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/hyperledger/fabric-contract-api-go/contractapi"
 )
@@ -30,6 +31,7 @@ func (c *GeoCacheContract) GeoCacheExists(ctx contractapi.TransactionContextInte
 	return data != nil, nil
 }
 
+//returns a stretched hash from a given password
 func myHash(s string) string {
 	n := 1
 	for n < 100 {
@@ -43,7 +45,9 @@ func myHash(s string) string {
 	return hex.EncodeToString([]byte(s))
 }
 
-func generateSalt() string {
+//returns a random string (usually for creating a salt)
+func generateRandomString() string {
+	rand.Seed(time.Now().UnixNano())
 	var letterRunes = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	salt := make([]rune, 8)
 	for i := range salt {
@@ -54,7 +58,7 @@ func generateSalt() string {
 }
 
 // CreateGeoCache creates a new instance of GeoCache
-func (c *GeoCacheContract) CreateGeoCache(ctx contractapi.TransactionContextInterface, user User, geoCacheID string, name string, description string, newXcoordRange [2]int, newYcoordRange [2]int) error {
+func (c *GeoCacheContract) CreateGeoCache(ctx contractapi.TransactionContextInterface, user User, geoCacheID string, name string, description string, newXcoordRange [2]int, newYcoordRange [2]int, trackableValue string) error {
 	exists, err := c.GeoCacheExists(ctx, geoCacheID)
 	if err != nil {
 		return fmt.Errorf("Could not read from world state. %s", err)
@@ -69,19 +73,16 @@ func (c *GeoCacheContract) CreateGeoCache(ctx contractapi.TransactionContextInte
 	geoCache.XcoordRange = newXcoordRange
 	geoCache.YcoordRange = newYcoordRange
 	geoCache.Owner = user
-	geoCache.Owner.Salt = generateSalt()
+	geoCache.Owner.Salt = generateRandomString()
 	geoCache.Owner.Id = myHash(user.Id + geoCache.Owner.Salt)
 	geoCache.Reports = []Report{}
 	geoCache.Visitors = []User{}
 
+	//create a trackable
 	trackable := new(Trackable)
-	var letterRunes = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-	b := make([]rune, 8)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
-	trackable.Id = string(b)
-	trackable.Value = "You are the first, who discovered this cache!"
+	//with a new random id, and the give value
+	trackable.Id = generateRandomString()
+	trackable.Value = trackableValue
 
 	geoCache.Trackable = *trackable
 
@@ -130,6 +131,7 @@ func (c *GeoCacheContract) UpdateGeoCache(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("Could not unmarshal world state data to type GeoCache")
 	}
 
+	//if the user is not the owner, throw an error
 	if geoCache.Owner.Id != myHash(user.Id+geoCache.Owner.Salt) {
 		return fmt.Errorf("Only the owner can update a cache!")
 	}
@@ -164,10 +166,12 @@ func (c *GeoCacheContract) AddVisitorToGeoCache(ctx contractapi.TransactionConte
 	Xin := Xcoord > geoCache.XcoordRange[0] && Xcoord < geoCache.XcoordRange[1]
 	Yin := Ycoord > geoCache.YcoordRange[0] && Ycoord < geoCache.YcoordRange[1]
 
+	//if the user's coordinates not in the cache's range, throw an error
 	if !Xin || !Yin {
 		return fmt.Errorf("You are not in the cache's location range!")
 	}
 
+	//add the user to the visitors log
 	geoCache.Visitors = append(geoCache.Visitors, user)
 
 	newBytes, _ := json.Marshal(geoCache)
@@ -175,6 +179,7 @@ func (c *GeoCacheContract) AddVisitorToGeoCache(ctx contractapi.TransactionConte
 	return ctx.GetStub().PutState(geoCacheId, newBytes)
 }
 
+//switches the given cache's and user's trackables
 func (c *GeoCacheContract) SwitchTrackable(ctx contractapi.TransactionContextInterface, trackable Trackable, geoCacheId string) (*Trackable, error) {
 	exists, err := c.GeoCacheExists(ctx, geoCacheId)
 	if err != nil {
@@ -218,6 +223,7 @@ func (c *GeoCacheContract) UpdateCoordGeoCache(ctx contractapi.TransactionContex
 		return fmt.Errorf("Could not unmarshal world state data to type GeoCache")
 	}
 
+	//if the user is not the owner, throw an error
 	if geoCache.Owner.Id != myHash(user.Id+geoCache.Owner.Salt) {
 		return fmt.Errorf("Only the owner can update a cache!")
 	}
@@ -248,6 +254,7 @@ func (c *GeoCacheContract) DeleteGeoCache(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("Could not unmarshal world state data to type GeoCache")
 	}
 
+	//if the user is not the owner, throw an error
 	if geoCache.Owner.Id != myHash(user.Id+geoCache.Owner.Salt) {
 		return fmt.Errorf("Only the owner can update a cache!")
 	}
@@ -273,7 +280,9 @@ func (c *GeoCacheContract) ReportGeoCache(ctx contractapi.TransactionContextInte
 		return fmt.Errorf("Could not unmarshal world state data to type GeoCache")
 	}
 
+	//create a report object and save to the cache's reports
 	report := new(Report)
+	report.Id = generateRandomString()
 	report.Message = message
 	report.Notifier = user
 
@@ -284,6 +293,7 @@ func (c *GeoCacheContract) ReportGeoCache(ctx contractapi.TransactionContextInte
 	return ctx.GetStub().PutState(geoCacheId, newBytes)
 }
 
+// get all the reports from a cache
 func (c *GeoCacheContract) GetReports(ctx contractapi.TransactionContextInterface, user User, geoCacheId string) ([]Report, error) {
 	exists, err := c.GeoCacheExists(ctx, geoCacheId)
 	if err != nil {
@@ -301,6 +311,7 @@ func (c *GeoCacheContract) GetReports(ctx contractapi.TransactionContextInterfac
 		return nil, fmt.Errorf("Could not unmarshal world state data to type GeoCache")
 	}
 
+	//if the user is not the owner, throw an error
 	if geoCache.Owner.Id != myHash(user.Id+geoCache.Owner.Salt) {
 		return nil, fmt.Errorf("Only the owner can get the reports!")
 	}
